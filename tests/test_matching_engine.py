@@ -23,6 +23,7 @@ class TestMatchingEngine:
         self.engine = MatchingEngine(
             symbols=["BTC-USD", "ETH-USD"],
             wal=self.wal,
+            imbalance_check_enabled=False,
         )
 
     def teardown_method(self):

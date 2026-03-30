@@ -46,6 +46,7 @@ def main():
         symbols=["BTC-USD", "ETH-USD", "SOL-USD"],
         wal=wal,
         risk_check=risk_check,
+        imbalance_check_enabled=False,  # disabled for demo; enable in production
     )
 
     # Wire up AI detector

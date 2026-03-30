@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-30
+
+### Added
+- **SortedDict (Red-Black tree) order book** — O(log n) sorted price levels replacing heap-based implementation
+- **IOC (Immediate-or-Cancel) orders** — fill what's available, cancel the rest
+- **FOK (Fill-or-Kill) orders** — fill completely or reject entirely
+- **L3 market data** — individual order visibility at each price level
+- **Book imbalance detection** — Flash Crash indicator with circuit breaker
+- **Memory pool** — pre-allocated order objects to eliminate GC pauses
+- **Mid-price and imbalance ratio** in order book snapshots
+- **L3 and imbalance API endpoints** — `/book/{symbol}/l3` and `/book/{symbol}/imbalance`
+- 19 new tests (76 total) covering IOC, FOK, L3, imbalance, SortedDict, OrderPool
+
+### Changed
+- Order book internals upgraded from heapq to SortedDict (sortedcontainers)
+- Matching engine now supports imbalance-based circuit breaker
+- API accepts IOC and FOK order types
+- Snapshot includes mid_price, imbalance_ratio, total_bid/ask_quantity
+
+---
+
 ## [0.1.0] - 2026-03-30
 
 ### Added

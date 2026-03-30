@@ -84,26 +84,39 @@ Lock-free ring buffer inspired by LMAX Disruptor:
 
 ```
 BIDS (Buy Orders)              ASKS (Sell Orders)
-Max Heap (neg prices)          Min Heap
+SortedDict (RB-Tree)           SortedDict (RB-Tree)
 
 $150.03: [O7, O12, O15]       $150.05: [O3, O8]
 $150.02: [O2, O9]             $150.06: [O11]
 $150.01: [O1, O5, O6, O14]   $150.07: [O4, O10, O13]
    ↑                              ↑
-Best Bid                       Best Ask
+Best Bid (peekitem O(1))       Best Ask (peekitem O(1))
          Spread: $0.02
+
+Imbalance Ratio: bid_qty/(bid_qty+ask_qty)
+  0.5 = balanced | >0.7 = buy pressure | <0.3 = sell pressure
 ```
 
-- Separate FIFO `deque` per price level
-- `heapq` for efficient best-bid/ask lookup
-- Price set for O(1) existence checks
-- Supports: limit orders, market orders, partial fills, cancellations
+- **SortedDict** (Red-Black tree equivalent) for O(log n) sorted price level access
+- Separate FIFO `deque` per price level for time priority within each price
+- O(1) order lookup via HashMap for instant cancellation
+- **L2 market data**: aggregated quantity per price level
+- **L3 market data**: individual orders visible at each price level
+- **Book imbalance detection**: Flash Crash indicator (SEC learned this from 2010)
 
 **Matching algorithm**: Price-time priority (SEC-mandated)
 1. Incoming sell matches against highest bid first
 2. At each price level, FIFO order wins
 3. Partial fills tracked via `remaining_quantity`
 4. Market orders sweep levels until filled or exhausted
+
+**Order types**:
+- LIMIT: Rest in book at specified price
+- MARKET: Execute immediately at best available price
+- IOC (Immediate-or-Cancel): Fill what you can, cancel the rest
+- FOK (Fill-or-Kill): Fill completely or reject entirely
+
+**Memory Pool**: Pre-allocated object pool to avoid GC pressure during peak load
 
 ### 4. Write-Ahead Log (`exchange/wal.py`)
 
@@ -202,7 +215,7 @@ Client Trade → Rule Check (1μs) → [if suspicious] → Claude Analysis (2s)
 | Metric | Value | How |
 |---|---|---|
 | Matching latency | <50μs | Single-threaded, in-memory, no locks |
-| Throughput | 100K+ orders/sec | Ring buffer + heap-based book |
+| Throughput | 100K+ orders/sec | Ring buffer + SortedDict (RB-tree) book |
 | WAL write | ~5μs | Binary encoding + fsync |
 | Recovery time | <1s per 1M entries | Sequential WAL replay |
 | Memory per order | ~200 bytes | Dataclass with slots potential |

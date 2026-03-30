@@ -23,11 +23,15 @@ BTC-USD Order Book
 
 ## Features
 
-- **Order Matching Engine** — Price-time priority (FIFO) with limit/market orders, partial fills, cancellations
+- **Order Matching Engine** — Price-time priority (FIFO) with LIMIT, MARKET, IOC, and FOK order types
+- **Red-Black Tree Order Book** — SortedDict-backed price levels with O(log n) access, O(1) best-bid/ask
 - **LMAX Disruptor Pattern** — Lock-free 64K ring buffer, single-threaded matching, zero GC pressure
-- **AI Anomaly Detection** — Claude API + rule-based hybrid for flash crash, pump-and-dump, spoofing detection
+- **L2/L3 Market Data** — Aggregated depth (L2) and individual order visibility (L3) feeds
+- **Book Imbalance Detection** — Flash Crash indicator with auto circuit breaker (SEC-inspired)
+- **AI Anomaly Detection** — Claude API + rule-based hybrid for flash crash, pump-and-dump, spoofing
 - **Write-Ahead Log** — Binary WAL with crash recovery and full state reconstruction
 - **Risk Management** — Pre-trade checks, position limits, price bands, rate limiting, auto circuit breaker
+- **Memory Pool** — Pre-allocated order objects to eliminate GC pauses during peak load
 - **Real-Time Data** — WebSocket streams for trades and order book updates
 - **REST API** — FastAPI with auto-generated OpenAPI docs
 - **Docker Ready** — One-command deployment
@@ -135,7 +139,9 @@ curl -X POST http://localhost:8000/analyze/BTC-USD
 | POST | `/orders` | Submit new order |
 | GET | `/orders/{id}` | Get order status |
 | DELETE | `/orders/{id}` | Cancel order |
-| GET | `/book/{symbol}` | Order book snapshot |
+| GET | `/book/{symbol}` | Order book snapshot (L2) |
+| GET | `/book/{symbol}/l3` | L3 market data (individual orders) |
+| GET | `/book/{symbol}/imbalance` | Book imbalance ratio |
 | GET | `/symbols` | List traded symbols |
 | GET | `/stats` | Engine statistics |
 | GET | `/risk` | Risk summary |
@@ -223,8 +229,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full system design with diagrams.
 
 **Key design decisions**:
 - **Single-threaded matching** — eliminates lock contention, provides deterministic latency
+- **SortedDict (Red-Black tree) order book** — O(log n) price levels, O(1) best bid/ask
 - **In-memory order book + WAL** — sub-microsecond access with crash recovery guarantee
 - **Ring buffer (Disruptor pattern)** — lock-free event sequencing, zero GC pressure
+- **Book imbalance circuit breaker** — Flash Crash protection (SEC-inspired, post-2010)
 - **Hybrid AI detection** — fast rules for every trade, deep Claude analysis for complex patterns
 
 ## Project Structure

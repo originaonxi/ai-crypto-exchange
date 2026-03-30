@@ -1,6 +1,6 @@
 [project]
 name = "ai-crypto-exchange"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-Enhanced Crypto Order Matching Engine — LMAX Disruptor-inspired with Claude-powered anomaly detection"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -25,6 +25,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "pydantic>=2.0",
     "websockets>=13.0",
+    "sortedcontainers>=2.4.0",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +53,9 @@ exchange-server = "exchange.cli:main"
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["exchange*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

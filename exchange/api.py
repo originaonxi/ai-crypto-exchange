@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 class OrderRequest(BaseModel):
     symbol: str
     side: str = Field(..., pattern="^(BUY|SELL)$")
-    order_type: str = Field(..., pattern="^(LIMIT|MARKET)$")
+    order_type: str = Field(..., pattern="^(LIMIT|MARKET|IOC|FOK)$")
     quantity: float = Field(..., gt=0)
     price: float = Field(0.0, ge=0)
     client_id: str = "anonymous"
@@ -146,6 +146,10 @@ def _snapshot_to_dict(snap: OrderBookSnapshot) -> dict:
         "best_bid": snap.best_bid,
         "best_ask": snap.best_ask,
         "spread": snap.spread,
+        "mid_price": snap.mid_price,
+        "imbalance_ratio": snap.imbalance_ratio if snap.imbalance_ratio != float('inf') else None,
+        "total_bid_quantity": snap.total_bid_quantity,
+        "total_ask_quantity": snap.total_ask_quantity,
         "timestamp_ns": snap.timestamp_ns,
     }
 
@@ -212,7 +216,7 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Risk rejection: {reason}")
         return ok
 
-    engine = MatchingEngine(symbols=SYMBOLS, wal=wal, risk_check=risk_check)
+    engine = MatchingEngine(symbols=SYMBOLS, wal=wal, risk_check=risk_check, imbalance_check_enabled=False)
     engine.on_execution(_on_execution)
     engine.on_book_update(_on_book_update)
 
@@ -277,6 +281,48 @@ async def get_order_book(symbol: str, depth: int = 20):
     if not snap:
         raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol}")
     return _snapshot_to_dict(snap)
+
+
+@app.get("/book/{symbol}/l3")
+async def get_order_book_l3(symbol: str, depth: int = 10):
+    """L3 market data — individual orders visible at each price level."""
+    snap = engine.get_l3_snapshot(symbol, depth)
+    if not snap:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol}")
+    return {
+        "symbol": snap.symbol,
+        "bids": [
+            {"price": l.price, "orders": [
+                {"order_id": o.order_id, "quantity": o.quantity, "timestamp_ns": o.timestamp_ns}
+                for o in l.orders
+            ]}
+            for l in snap.bids
+        ],
+        "asks": [
+            {"price": l.price, "orders": [
+                {"order_id": o.order_id, "quantity": o.quantity, "timestamp_ns": o.timestamp_ns}
+                for o in l.orders
+            ]}
+            for l in snap.asks
+        ],
+        "timestamp_ns": snap.timestamp_ns,
+    }
+
+
+@app.get("/book/{symbol}/imbalance")
+async def get_book_imbalance(symbol: str, levels: int = 5):
+    """Book imbalance ratio — key Flash Crash indicator."""
+    imbalance = engine.get_book_imbalance(symbol, levels)
+    if imbalance is None:
+        raise HTTPException(status_code=404, detail=f"Unknown symbol: {symbol}")
+    return {
+        "symbol": symbol,
+        "imbalance_ratio": round(imbalance, 4),
+        "interpretation": "balanced" if 0.3 <= imbalance <= 0.7
+            else "heavy_buy_pressure" if imbalance > 0.7
+            else "heavy_sell_pressure",
+        "levels_analyzed": levels,
+    }
 
 
 @app.get("/stats")

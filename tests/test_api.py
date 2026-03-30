@@ -136,3 +136,62 @@ class TestAPIEndpoints:
             "price": 50000.0,
         })
         assert resp.status_code == 422  # validation error
+
+    def test_l3_order_book(self, client):
+        client.post("/orders", json={
+            "symbol": "BTC-USD",
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "quantity": 1.0,
+            "price": 40000.0,
+            "client_id": "alice",
+        })
+        resp = client.get("/book/BTC-USD/l3")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["bids"]) >= 1
+        assert "orders" in data["bids"][0]
+
+    def test_book_imbalance(self, client):
+        client.post("/orders", json={
+            "symbol": "DOGE-USD",
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "quantity": 100.0,
+            "price": 0.10,
+        })
+        client.post("/orders", json={
+            "symbol": "DOGE-USD",
+            "side": "SELL",
+            "order_type": "LIMIT",
+            "quantity": 100.0,
+            "price": 0.11,
+        })
+        resp = client.get("/book/DOGE-USD/imbalance")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "imbalance_ratio" in data
+        assert "interpretation" in data
+
+    def test_ioc_order(self, client):
+        resp = client.post("/orders", json={
+            "symbol": "BTC-USD",
+            "side": "BUY",
+            "order_type": "IOC",
+            "quantity": 1.0,
+            "price": 50000.0,
+        })
+        assert resp.status_code == 200
+        # IOC with no counterparty should be cancelled
+        assert resp.json()["status"] == "CANCELLED"
+
+    def test_fok_order(self, client):
+        resp = client.post("/orders", json={
+            "symbol": "BTC-USD",
+            "side": "BUY",
+            "order_type": "FOK",
+            "quantity": 1.0,
+            "price": 50000.0,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "CANCELLED"  # no liquidity
