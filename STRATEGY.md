@@ -1,130 +1,202 @@
-# Strategy: Why This Will Be the World's Best Open-Source Exchange Engine
+# Strategy — Competitive Positioning & Roadmap
+
+> How we intend to make this the most-starred, most-forked, and most-deployed open-source exchange engine in the world.
+
+---
 
 ## Vision
 
-The first open-source order matching engine that combines institutional-grade performance with AI-powered market surveillance — making exchange-level infrastructure accessible to every builder, from solo developers to fintech startups.
+**Democratize exchange infrastructure.** The same technology that powers NASDAQ ($25B daily volume) should be available to a solo developer launching a prediction market from their laptop.
+
+We are building the **Linux of exchange engines** — a foundational layer that anyone can build on, with AI-native market surveillance that didn't exist until 2024.
+
+---
+
+## The Moat: What Makes Us Unreplicable
+
+### 1. First-Mover in AI-Native Exchange Infrastructure
+
+No other open-source exchange integrates LLM-powered anomaly detection. We don't bolt AI on after the fact — it runs inline with the matching engine, seeing every trade with microsecond-level context.
+
+**This matters because**: Claude's `tool_use` enables structured, auditable surveillance decisions. Every alert has a type, severity, confidence score, and recommendation. This is what regulators want to see — not a black-box ML model that says "anomaly detected" with no explanation.
+
+### 2. The Only OSS Project That Addresses Knight Capital + Flash Crash + Pump-Dump
+
+Other open-source exchanges give you matching. We give you matching + the three safeguards that would have prevented the three most expensive failures in market history:
+
+| Disaster | Cost | Root Cause | Our Safeguard |
+|---|---|---|---|
+| Knight Capital (2012) | $440M in 45 min | No kill switch, no position limits | `halt_trading()` + position limits + volume spike detection |
+| Flash Crash (2010) | $1T in 5 min | No book imbalance detection | Real-time imbalance ratio with auto-halt |
+| Pump-and-dump (ongoing) | $4.6B in 2023 | No surveillance for small exchanges | Claude AI + rule engine, free |
+
+### 3. Institutional Architecture, Startup Simplicity
+
+```bash
+# This is the entire deployment:
+docker compose up
+```
+
+No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container running an in-memory matching engine with WAL persistence. Scale up when you need to, not before.
+
+---
 
 ## Top 10 Differentiators
 
-### 1. AI-Native Market Surveillance
-No other open-source exchange integrates LLM-powered anomaly detection. Our hybrid approach (rule-based fast path + Claude deep analysis) detects flash crashes, pump-and-dump schemes, spoofing, and wash trading — the same manipulation that cost Knight Capital $440M.
-
-### 2. LMAX Disruptor-Inspired Architecture
-Single-threaded event loop with lock-free ring buffer eliminates lock contention entirely. This is the same architecture that powers the London Metal Exchange and LMAX, achieving deterministic sub-100μs latency.
-
-### 3. Zero-to-Production in 60 Seconds
-```bash
-docker compose up   # That's it.
-```
-No Kafka, no Redis, no database setup. The entire system runs from a single Docker container with in-memory matching and WAL persistence.
-
-### 4. Write-Ahead Log with Crash Recovery
-Every state change is logged before processing. Full state reconstruction after any crash. This is how NASDAQ achieves 99.999% uptime — we bring the same guarantee to open-source.
-
-### 5. Real-Time Risk Management
-Pre-trade and post-trade risk checks: position limits, price bands, rate limiting, volume spike detection, and automatic circuit breakers. The system that would have prevented Knight Capital's disaster.
-
-### 6. WebSocket Market Data Feed
-Real-time order book and trade stream via WebSocket — the same Level II data that institutional traders pay thousands/month to access.
-
-### 7. FIX Protocol-Ready Design
-Message models follow FIX 5.0 SP2 semantics (NewOrderSingle, ExecutionReport). Adding a FIX gateway is a natural extension, not a rewrite.
-
-### 8. Production Benchmarks Included
-Built-in load tester proves performance claims. Run `python scripts/load_test.py` and see real numbers, not marketing slides.
-
-### 9. Extensible Plugin Architecture
-Event callbacks for executions, book updates, and order status changes. Wire in your own risk models, market makers, or analytics pipelines.
-
-### 10. Built for Education and Production
-Every component is documented with the "why" — from price-time priority to ring buffers. Use it to learn exchange internals, then deploy it for real trading.
+| # | Feature | Us | CCXT | OpenDAX | Peatio | Matching-Engine (GH) |
+|---|---|---|---|---|---|---|
+| 1 | AI anomaly detection (Claude + rules) | Yes | No | No | No | No |
+| 2 | LMAX Disruptor single-threaded engine | Yes | N/A | No | No | No |
+| 3 | Red-Black tree order book | Yes | N/A | No | No | No |
+| 4 | Book imbalance circuit breaker | Yes | No | No | No | No |
+| 5 | L2 + L3 market data feeds | Yes | Varies | L2 only | L2 only | No |
+| 6 | IOC + FOK order types | Yes | N/A | No | No | No |
+| 7 | Write-ahead log with crash recovery | Yes | N/A | PostgreSQL | PostgreSQL | No |
+| 8 | Sub-100μs matching latency | Yes | N/A | ~10ms | ~50ms | ~1ms |
+| 9 | Built-in load test harness | Yes | No | No | No | No |
+| 10 | One-command Docker deploy | Yes | N/A | 10+ services | 10+ services | No |
 
 ---
 
-## Competitive Comparison
+## Competitive Landscape — Deep Analysis
 
-| Feature | **ai-crypto-exchange** | CCXT | Matching-Engine (GH) | OpenDAX | Peatio |
-|---|---|---|---|---|---|
-| Order Matching Engine | Full LMAX-style | No (API wrapper) | Basic | Yes | Yes |
-| AI Anomaly Detection | Claude + Rules | No | No | No | No |
-| Flash Crash Detection | Yes | No | No | No | No |
-| Pump-and-Dump Detection | Yes | No | No | No | No |
-| Auto Circuit Breaker | Yes | No | No | Manual | Manual |
-| Write-Ahead Log | Yes | N/A | No | PostgreSQL | PostgreSQL |
-| Sub-100μs Latency | Yes | N/A | ~1ms | ~10ms | ~50ms |
-| WebSocket Feeds | Yes | Varies | No | Yes | Yes |
-| Risk Management | Comprehensive | No | No | Basic | Basic |
-| Docker One-Click | Yes | N/A | No | Complex | Complex |
-| Load Test Harness | Built-in | No | No | No | No |
-| Zero Dependencies* | Yes | 50+ | Varies | 20+ | 30+ |
+### CCXT (40K+ GitHub stars)
+**What it is**: API wrapper library for 100+ crypto exchanges.
+**What it isn't**: An exchange. CCXT connects to existing exchanges — it doesn't run one.
+**Our position**: Complementary. CCXT users can use our exchange as a backend.
 
-*Core engine has zero external dependencies. FastAPI is only for the REST layer.
+### OpenDAX / Peatio
+**What they are**: Full exchange platforms with UI, KYC, banking.
+**What they cost**: Free code, but 10+ microservices to deploy (RabbitMQ, PostgreSQL, Redis, Vault, etc.)
+**Their weakness**: PostgreSQL-based matching (~10-50ms latency). No AI surveillance.
+**Our position**: We replace their matching engine with something 1000x faster, and add AI surveillance they don't have.
+
+### NASDAQ Market Technology
+**What it is**: The gold standard. Powers 130+ exchanges globally.
+**What it costs**: $2M-$10M license + $1M/year support.
+**Our position**: We're not competing with NASDAQ. We're making NASDAQ's architecture accessible to people who can't afford NASDAQ.
+
+### Custom-Built Exchange Engines (GH repos)
+**What they are**: 50+ repos with "order matching engine" in the title.
+**Their weakness**: Toy implementations. No risk management, no surveillance, no crash recovery, no tests.
+**Our position**: The first one that's actually production-grade.
 
 ---
 
-## Roadmap
+## Roadmap — Version by Version
 
-### v0.1.0 (Current) — Foundation
-- [x] Order matching engine with price-time priority
-- [x] Limit and market orders
-- [x] Write-ahead log and crash recovery
+### v0.1.0 — Foundation (Released)
+- [x] Order matching with price-time priority
+- [x] LIMIT and MARKET orders
+- [x] Write-ahead log with crash recovery
 - [x] Risk management with circuit breaker
-- [x] AI anomaly detection (Claude + rule-based)
-- [x] REST API with FastAPI
-- [x] WebSocket market data
+- [x] AI anomaly detection (Claude + rules)
+- [x] REST API + WebSocket feeds
 - [x] Docker deployment
-- [x] Comprehensive test suite
+- [x] 57 tests
 
-### v0.2.0 — Market Making & Analytics
-- [ ] Built-in market maker bot
-- [ ] Candlestick/OHLCV aggregation
-- [ ] Trade history API with pagination
-- [ ] Prometheus metrics endpoint
+### v0.2.0 — Advanced Book (Current Release)
+- [x] Red-Black tree (SortedDict) order book
+- [x] IOC (Immediate-or-Cancel) orders
+- [x] FOK (Fill-or-Kill) orders
+- [x] L3 market data (individual order visibility)
+- [x] Book imbalance detection + circuit breaker
+- [x] Memory pool for GC-free allocation
+- [x] Mid-price, imbalance ratio in snapshots
+- [x] 76 tests
+
+### v0.3.0 — Market Infrastructure (Next)
+- [ ] OHLCV candlestick aggregation (1s, 1m, 5m, 1h, 1d)
+- [ ] Trade history API with cursor-based pagination
+- [ ] Built-in market maker bot (configurable spread + inventory)
+- [ ] Prometheus metrics endpoint (`/metrics`)
 - [ ] Grafana dashboard templates
+- [ ] Order amendment (modify price/quantity without cancel+replace)
 
-### v0.3.0 — Advanced Order Types
+### v0.4.0 — Advanced Orders
 - [ ] Stop-loss and stop-limit orders
-- [ ] Iceberg (hidden quantity) orders
-- [ ] Fill-or-Kill (FOK) and Immediate-or-Cancel (IOC)
-- [ ] Time-in-force policies (GTC, GTD, DAY)
+- [ ] Trailing stop orders
+- [ ] Iceberg orders (hidden quantity)
+- [ ] Time-in-force: GTC (Good Till Cancel), GTD (Good Till Date), DAY
+- [ ] Self-trade prevention (STP) modes
+- [ ] Minimum quantity / display quantity
 
-### v0.4.0 — Multi-Node & FIX Protocol
-- [ ] FIX 5.0 SP2 gateway
-- [ ] Active-passive replication
-- [ ] Raft consensus for order sequencing
-- [ ] Hardware timestamp support
+### v0.5.0 — Enterprise
+- [ ] FIX 5.0 SP2 gateway (full protocol support)
+- [ ] Active-passive WAL replication
+- [ ] Raft consensus for leader election
+- [ ] Hardware timestamping support
+- [ ] Symbol management (add/remove/halt per symbol)
+- [ ] Multi-tenancy (isolated books per exchange operator)
 
-### v0.5.0 — AI v2
-- [ ] Vector embedding trade clustering (pattern recognition)
-- [ ] Predictive anomaly detection (detect before impact)
-- [ ] Natural language trade surveillance queries
-- [ ] Automated compliance reporting
+### v0.6.0 — AI v2
+- [ ] Vector embedding trade clustering (group similar patterns)
+- [ ] Predictive anomaly detection (alert 30s before impact)
+- [ ] Natural language surveillance queries ("Show me all wash trading on BTC today")
+- [ ] Automated compliance report generation
+- [ ] Client behavior profiling (risk score per trader)
+
+### v0.7.0 — Performance
+- [ ] PyPy compatibility (2-5x throughput improvement)
+- [ ] Optional C extension for hot-path matching
+- [ ] Kernel bypass networking (DPDK) support
+- [ ] Memory-mapped WAL (mmap)
+- [ ] Batch execution reports (reduce per-trade overhead)
 
 ### v1.0.0 — Production Ready
-- [ ] SEC/FINRA compliance features
-- [ ] Audit trail with tamper-proof logging
-- [ ] Multi-asset class support (equities, options, futures)
-- [ ] FPGA acceleration for sub-10μs latency
-- [ ] Kubernetes operator for auto-scaling
+- [ ] SEC/FINRA compliance feature set
+- [ ] Tamper-proof audit trail (Merkle tree hashed)
+- [ ] Multi-asset class: equities, options, futures, crypto
+- [ ] FPGA acceleration module for sub-10μs latency
+- [ ] Kubernetes operator with auto-scaling
+- [ ] Comprehensive security audit
+- [ ] Performance certification (independent benchmarks)
 
 ---
 
-## Target Users
+## Target Users & Go-to-Market
 
-1. **Fintech Startups** — Launch a crypto exchange without building matching infrastructure from scratch
-2. **Quantitative Traders** — Backtest strategies against a real order book with realistic matching
-3. **Engineering Teams** — Learn exchange internals through production-quality, well-documented code
-4. **System Design Interviewers** — Use as a reference implementation for "Design an Order Matching Engine"
-5. **Regulators & Compliance** — Study AI-powered market surveillance approaches
+### Primary Users
+
+| Segment | What They Need | What We Give Them | How They Find Us |
+|---|---|---|---|
+| **Fintech startups** | Exchange backend without $5M build | Full matching + risk + AI surveillance | GitHub, HN, Product Hunt |
+| **Quant traders** | Realistic order book for backtesting | Production-accurate matching semantics | Trading forums, arXiv |
+| **Engineering teams** | Learn exchange internals | Best-documented OSS exchange | System design study groups |
+| **System design interviewers** | Reference implementation | "Design an Order Matching Engine" — done | Interview prep communities |
+| **Regulators / academics** | Study AI surveillance approaches | Working Claude integration with tool_use | Academic papers, conferences |
+
+### Secondary Users (v0.5+)
+
+| Segment | What They Need | What We Give Them |
+|---|---|---|
+| **Regulated exchanges** | Meet SEC/FINRA surveillance requirements | Auditable AI alerts with confidence scores |
+| **Crypto exchanges** | Upgrade from PostgreSQL matching | Drop-in replacement, 1000x faster |
+| **Prediction markets** | Order matching for binary outcomes | Generic matching engine, any asset type |
+| **Tokenized assets** | Exchange for real-world asset tokens | Full L2/L3 feeds, compliance-ready |
 
 ---
 
-## Why Now?
+## Growth Strategy
 
-- **AI Integration**: Claude's tool_use enables structured, auditable market surveillance decisions — something not possible even 2 years ago
-- **Crypto Regulation**: New SEC rules require exchanges to demonstrate market manipulation detection capabilities
-- **Open-Source Gap**: No existing OSS project combines matching + risk + AI surveillance in one package
-- **Education Demand**: "Design an Order Matching Engine" is a top-5 system design interview question at FAANG companies
+### Phase 1: Developer Adoption (v0.1-v0.3)
+- GitHub stars as primary metric
+- Technical blog posts explaining architecture decisions
+- System design interview prep content
+- Conference talks (PyCon, QCon, Strange Loop)
+- Hacker News launch
+
+### Phase 2: Startup Adoption (v0.4-v0.6)
+- Case studies from early adopters
+- "Exchange-as-a-Service" template
+- Partnership with crypto compliance vendors
+- Integration guides for common stacks
+
+### Phase 3: Enterprise Adoption (v0.7-v1.0)
+- Commercial support offering
+- SLA guarantees
+- Compliance certification
+- Managed cloud offering (optional)
 
 ---
 
@@ -132,8 +204,45 @@ Every component is documented with the "why" — from price-time priority to rin
 
 > "The difference between a good trading system and a great one isn't the profits it makes — it's the losses it prevents when everything goes wrong."
 
-Every design decision optimizes for:
-1. **Correctness** over throughput — wrong trades are worse than slow trades
-2. **Determinism** over parallelism — single-threaded eliminates race conditions
-3. **Recovery** over prevention — assume crashes will happen, guarantee reconstruction
-4. **Transparency** over complexity — every trade is logged, every alert is explainable
+### Four Principles
+
+**1. Correctness over throughput**
+A wrong trade at microsecond speed is worse than a correct trade at millisecond speed. Single-threaded matching eliminates race conditions by design. Every order is processed in exactly one sequence — no "it depends on thread timing."
+
+**2. Determinism over parallelism**
+Given the same sequence of orders, the engine produces exactly the same sequence of trades. Every time. This is required for WAL replay (crash recovery), regulatory audit, and debugging. Non-deterministic matching engines can't be audited.
+
+**3. Recovery over prevention**
+Crashes will happen. Hardware fails. Processes get OOM-killed. Instead of trying to prevent every possible failure, we guarantee recovery from any failure via WAL replay. Zero trades lost, ever.
+
+**4. Transparency over complexity**
+Every trade is logged in the WAL. Every AI alert has a type, severity, confidence, and recommendation. Every risk rejection has a reason string. No black boxes. This is how you build systems that regulators trust and engineers can debug at 3 AM.
+
+---
+
+## Why Now?
+
+| Trend | Impact on Us |
+|---|---|
+| **Claude tool_use (2024)** | First time an LLM can make structured, auditable surveillance decisions |
+| **SEC crypto regulation (2024-2025)** | New exchanges must demonstrate manipulation detection |
+| **MiCA (EU, 2025)** | European crypto exchanges need compliant infrastructure |
+| **"Design an Exchange" interviews** | Top-5 system design question at FAANG — massive education demand |
+| **Tokenized assets boom** | Real-world assets moving on-chain need matching engines |
+| **FTX collapse aftermath** | Industry demands transparent, auditable exchange technology |
+
+---
+
+## The Endgame
+
+In 5 years, we want every new exchange — crypto, equities, prediction markets, carbon credits, tokenized real estate — to start with our open-source engine, the same way every new web app starts with Linux + PostgreSQL + React.
+
+The exchange engine should be infrastructure, not a competitive advantage. The competitive advantage should be in the products built on top of it.
+
+**We're building the foundation.**
+
+---
+
+**Built by [Anmol Sam](https://github.com/originaonxi)** | CTO @ Aonxi | ex-Meta, ex-Apple | NeurIPS 2026
+
+**Powered by [Anthropic Claude](https://anthropic.com)** — the AI that watches the markets so humans don't have to
