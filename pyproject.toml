@@ -1,0 +1,66 @@
+[project]
+name = "ai-crypto-exchange"
+version = "0.1.0"
+description = "AI-Enhanced Crypto Order Matching Engine — LMAX Disruptor-inspired with Claude-powered anomaly detection"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Anmol Sam", email = "anmol@aonxi.com"},
+]
+keywords = ["exchange", "order-matching", "trading", "crypto", "ai", "anomaly-detection"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.0",
+    "websockets>=13.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "anthropic>=0.40.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.7.0",
+]
+all = [
+    "ai-crypto-exchange[ai,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/anmolsam/ai-crypto-exchange"
+Repository = "https://github.com/anmolsam/ai-crypto-exchange"
+Issues = "https://github.com/anmolsam/ai-crypto-exchange/issues"
+
+[project.scripts]
+exchange-server = "exchange.cli:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]

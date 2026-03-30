@@ -1,0 +1,18 @@
+services:
+  exchange:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - exchange-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/stats')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  exchange-data:
