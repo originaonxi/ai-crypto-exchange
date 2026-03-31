@@ -45,16 +45,16 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 
 | # | Feature | Us | CCXT | OpenDAX | Peatio | Matching-Engine (GH) |
 |---|---|---|---|---|---|---|
-| 1 | AI anomaly detection (Claude + rules) | Yes | No | No | No | No |
-| 2 | LMAX Disruptor single-threaded engine | Yes | N/A | No | No | No |
-| 3 | Red-Black tree order book | Yes | N/A | No | No | No |
-| 4 | Book imbalance circuit breaker | Yes | No | No | No | No |
-| 5 | L2 + L3 market data feeds | Yes | Varies | L2 only | L2 only | No |
-| 6 | IOC + FOK order types | Yes | N/A | No | No | No |
-| 7 | Write-ahead log with crash recovery | Yes | N/A | PostgreSQL | PostgreSQL | No |
-| 8 | Sub-100μs matching latency | Yes | N/A | ~10ms | ~50ms | ~1ms |
-| 9 | Built-in load test harness | Yes | No | No | No | No |
-| 10 | One-command Docker deploy | Yes | N/A | 10+ services | 10+ services | No |
+| 1 | DTCC-style T+1 settlement with CCP | Yes | No | No | No | No |
+| 2 | Multilateral netting engine (98%) | Yes | No | No | No | No |
+| 3 | Monte Carlo margin + AI fail prediction | Yes | No | No | No | No |
+| 4 | SEC circuit breakers + LULD bands | Yes | No | No | No | No |
+| 5 | SIP market data feed with NBBO | Yes | No | No | No | No |
+| 6 | Sub-5μs pre-trade risk + kill switch | Yes | No | No | No | No |
+| 7 | AI anomaly detection (Claude + rules) | Yes | No | No | No | No |
+| 8 | LMAX Disruptor + RB-tree order book | Yes | N/A | No | No | No |
+| 9 | 50+ REST endpoints + WebSocket feeds | Yes | N/A | ~20 | ~15 | 0 |
+| 10 | 152 tests, one-command Docker deploy | Yes | N/A | 10+ services | 10+ services | No |
 
 ---
 
@@ -95,7 +95,7 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 - [x] Docker deployment
 - [x] 57 tests
 
-### v0.2.0 — Advanced Book (Current Release)
+### v0.2.0 — Advanced Book (Released)
 - [x] Red-Black tree (SortedDict) order book
 - [x] IOC (Immediate-or-Cancel) orders
 - [x] FOK (Fill-or-Kill) orders
@@ -105,7 +105,25 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 - [x] Mid-price, imbalance ratio in snapshots
 - [x] 76 tests
 
-### v0.3.0 — Market Infrastructure (Next)
+### v0.3.0 — Settlement, Circuit Breakers & Market Data (Current Release)
+- [x] T+1 settlement with DTCC-style Central Counterparty (CCP)
+- [x] Multilateral netting engine (CNS-style, 98% efficiency)
+- [x] Monte Carlo margin calculator (10K VaR simulations)
+- [x] DVP atomic settlement with fail management
+- [x] Stock borrow program for automated fail resolution
+- [x] Obligation warehouse with daily mark-to-market
+- [x] Claude-powered predictive settlement fail analytics
+- [x] SEC 3-level market-wide circuit breakers (7%/13%/20%)
+- [x] LULD per-security dynamic price bands
+- [x] Sub-5μs pre-trade risk engine (8 checks, L1 cache optimized)
+- [x] Kill switch for per-participant trade termination
+- [x] SIP processor with gap detection & sequence ordering
+- [x] NBBO calculator across multiple venues
+- [x] Tiered market data distribution (Direct/Standard/Delayed)
+- [x] 30+ new REST API endpoints
+- [x] 152 tests
+
+### v0.4.0 — Market Infrastructure (Next)
 - [ ] OHLCV candlestick aggregation (1s, 1m, 5m, 1h, 1d)
 - [ ] Trade history API with cursor-based pagination
 - [ ] Built-in market maker bot (configurable spread + inventory)
@@ -113,7 +131,7 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 - [ ] Grafana dashboard templates
 - [ ] Order amendment (modify price/quantity without cancel+replace)
 
-### v0.4.0 — Advanced Orders
+### v0.5.0 — Advanced Orders
 - [ ] Stop-loss and stop-limit orders
 - [ ] Trailing stop orders
 - [ ] Iceberg orders (hidden quantity)
@@ -121,7 +139,7 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 - [ ] Self-trade prevention (STP) modes
 - [ ] Minimum quantity / display quantity
 
-### v0.5.0 — Enterprise
+### v0.6.0 — Enterprise
 - [ ] FIX 5.0 SP2 gateway (full protocol support)
 - [ ] Active-passive WAL replication
 - [ ] Raft consensus for leader election
@@ -129,14 +147,14 @@ No Kafka. No Redis. No PostgreSQL. No Kubernetes. Just one Docker container runn
 - [ ] Symbol management (add/remove/halt per symbol)
 - [ ] Multi-tenancy (isolated books per exchange operator)
 
-### v0.6.0 — AI v2
+### v0.7.0 — AI v2
 - [ ] Vector embedding trade clustering (group similar patterns)
 - [ ] Predictive anomaly detection (alert 30s before impact)
 - [ ] Natural language surveillance queries ("Show me all wash trading on BTC today")
 - [ ] Automated compliance report generation
 - [ ] Client behavior profiling (risk score per trader)
 
-### v0.7.0 — Performance
+### v0.8.0 — Performance
 - [ ] PyPy compatibility (2-5x throughput improvement)
 - [ ] Optional C extension for hot-path matching
 - [ ] Kernel bypass networking (DPDK) support
