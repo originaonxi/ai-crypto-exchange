@@ -1,14 +1,14 @@
 [project]
 name = "ai-crypto-exchange"
-version = "0.2.0"
-description = "AI-Enhanced Crypto Order Matching Engine — LMAX Disruptor-inspired with Claude-powered anomaly detection"
+version = "0.3.0"
+description = "AI-Enhanced Crypto Exchange — LMAX matching engine, DTCC-style settlement & clearing, SEC circuit breakers, SIP market data feeds, Claude-powered risk analytics"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 authors = [
     {name = "Anmol Sam", email = "anmol@aonxi.com"},
 ]
-keywords = ["exchange", "order-matching", "trading", "crypto", "ai", "anomaly-detection"]
+keywords = ["exchange", "order-matching", "trading", "crypto", "ai", "anomaly-detection", "settlement", "clearing", "circuit-breaker", "market-data", "netting"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

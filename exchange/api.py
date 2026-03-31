@@ -29,6 +29,18 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from exchange.ai_detector import AIAnomalyDetector
+from exchange.circuit_breaker import (
+    CircuitBreakerController,
+    LULDMonitor,
+    PreTradeRiskEngine,
+    PreTradeRiskLimits,
+)
+from exchange.market_data import (
+    FeedTier,
+    MarketDataFeedManager,
+    MarketDataMessage,
+    MessageType,
+)
 from exchange.matching_engine import MatchingEngine
 from exchange.order_book import (
     Execution,
@@ -39,6 +51,8 @@ from exchange.order_book import (
     Side,
 )
 from exchange.risk_manager import RiskLimits, RiskManager
+from exchange.settlement import SettlementEngine, Trade
+from exchange.settlement_ai import SettlementPredictor
 from exchange.wal import WAL
 
 logger = logging.getLogger(__name__)
@@ -122,6 +136,12 @@ engine: Optional[MatchingEngine] = None
 risk_mgr: Optional[RiskManager] = None
 ai_detector: Optional[AIAnomalyDetector] = None
 wal: Optional[WAL] = None
+settlement_engine: Optional[SettlementEngine] = None
+settlement_predictor: Optional[SettlementPredictor] = None
+circuit_breaker: Optional[CircuitBreakerController] = None
+luld_monitor: Optional[LULDMonitor] = None
+pre_trade_risk: Optional[PreTradeRiskEngine] = None
+market_data_feed: Optional[MarketDataFeedManager] = None
 _event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
@@ -199,6 +219,8 @@ SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "ADA-USD"]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global engine, risk_mgr, ai_detector, wal, _event_loop
+    global settlement_engine, settlement_predictor
+    global circuit_breaker, luld_monitor, pre_trade_risk, market_data_feed
 
     _event_loop = asyncio.get_event_loop()
 
@@ -224,7 +246,29 @@ async def lifespan(app: FastAPI):
         halt_callback=lambda reason: engine.halt_trading(reason),
     )
 
+    # --- Settlement & Clearing ---
+    settlement_engine = SettlementEngine(settlement_cycle_days=1)
+    settlement_predictor = SettlementPredictor()
+
+    # --- Circuit Breakers & LULD ---
+    circuit_breaker = CircuitBreakerController(reference_price=50000.0)
+    circuit_breaker.on_halt(
+        lambda level, decline, duration: engine.halt_trading(
+            f"Circuit breaker {level.value}: {decline:.1%} decline"
+        )
+    )
+
+    luld_monitor = LULDMonitor(tier1_symbols={"BTC-USD", "ETH-USD"})
+    for sym in SYMBOLS:
+        luld_monitor.initialize_band(sym, 50000.0 if "BTC" in sym else 3000.0)
+
+    pre_trade_risk = PreTradeRiskEngine()
+
+    # --- Market Data Feed ---
+    market_data_feed = MarketDataFeedManager()
+
     logger.info(f"Exchange started with symbols: {SYMBOLS}")
+    logger.info("Settlement engine, circuit breakers, LULD, and market data feeds initialized")
     yield
 
     wal.close()
@@ -413,3 +457,273 @@ async def ws_book(websocket: WebSocket, symbol: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect_book(websocket, symbol)
+
+
+# ===================================================================
+# Settlement & Clearing Endpoints
+# ===================================================================
+
+class MemberRegisterRequest(BaseModel):
+    member_id: str
+    name: str
+    initial_cash: float = 0.0
+
+
+class DepositRequest(BaseModel):
+    member_id: str
+    symbol: str = ""
+    quantity: float = 0.0
+    cash: float = 0.0
+
+
+class TradeIngestRequest(BaseModel):
+    symbol: str
+    buyer_member_id: str
+    seller_member_id: str
+    quantity: float = Field(..., gt=0)
+    price: float = Field(..., gt=0)
+    settlement_date: str
+
+
+class MarginPostRequest(BaseModel):
+    member_id: str
+    amount: float = Field(..., gt=0)
+
+
+@app.post("/settlement/members")
+async def register_settlement_member(req: MemberRegisterRequest):
+    account = settlement_engine.register_member(req.member_id, req.name, req.initial_cash)
+    return {"member_id": account.member_id, "name": account.name, "cash_balance": account.cash_balance}
+
+
+@app.post("/settlement/deposit")
+async def settlement_deposit(req: DepositRequest):
+    if req.cash > 0:
+        settlement_engine.deposit_cash(req.member_id, req.cash)
+    if req.quantity > 0 and req.symbol:
+        settlement_engine.deposit_securities(req.member_id, req.symbol, req.quantity)
+    return settlement_engine.get_member_summary(req.member_id)
+
+
+@app.post("/settlement/trades")
+async def ingest_settlement_trade(req: TradeIngestRequest):
+    trade = Trade(
+        trade_id=uuid4().hex[:16],
+        symbol=req.symbol,
+        buyer_member_id=req.buyer_member_id,
+        seller_member_id=req.seller_member_id,
+        quantity=req.quantity,
+        price=req.price,
+        timestamp_ns=time.time_ns(),
+        settlement_date=req.settlement_date,
+    )
+    settlement_engine.ingest_trade(trade)
+    return {"trade_id": trade.trade_id, "status": trade.status.value}
+
+
+@app.post("/settlement/netting/{settlement_date}")
+async def run_netting(settlement_date: str):
+    result = settlement_engine.run_netting_cycle(settlement_date)
+    return {
+        "gross_trades": result.gross_trades,
+        "net_instructions": result.net_instructions,
+        "netting_efficiency": round(result.netting_efficiency, 4),
+        "gross_value": result.gross_value,
+        "net_value": result.net_value,
+        "capital_saved": result.capital_saved,
+    }
+
+
+@app.post("/settlement/execute/{settlement_date}")
+async def execute_settlement(settlement_date: str):
+    return settlement_engine.execute_settlement(settlement_date)
+
+
+@app.post("/settlement/margin")
+async def post_margin(req: MarginPostRequest):
+    settlement_engine.post_margin(req.member_id, req.amount)
+    return settlement_engine.get_member_summary(req.member_id)
+
+
+@app.post("/settlement/margin/calculate")
+async def calculate_margins(prices: dict[str, float]):
+    margins = settlement_engine.calculate_all_margins(prices)
+    return {
+        member_id: {
+            "amount": m.amount,
+            "var_95": m.var_95,
+            "var_99": m.var_99,
+            "stress_loss": m.stress_loss,
+        }
+        for member_id, m in margins.items()
+    }
+
+
+@app.get("/settlement/stats")
+async def get_settlement_stats():
+    return settlement_engine.get_settlement_stats()
+
+
+@app.get("/settlement/members/{member_id}")
+async def get_member_summary(member_id: str):
+    summary = settlement_engine.get_member_summary(member_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail=f"Unknown member: {member_id}")
+    return summary
+
+
+@app.get("/settlement/netting/history")
+async def get_netting_history(limit: int = 10):
+    return settlement_engine.get_netting_history(limit)
+
+
+@app.post("/settlement/warehouse/process")
+async def process_obligation_warehouse():
+    resolved = settlement_engine.process_obligation_warehouse()
+    return {
+        "resolved": len(resolved),
+        "remaining": len(settlement_engine.obligation_warehouse),
+    }
+
+
+# --- AI Settlement Predictions ---
+
+@app.post("/settlement/predict/{member_id}/{symbol}")
+async def predict_settlement_fail(
+    member_id: str,
+    symbol: str,
+    position_size: float = 100.0,
+    available_securities: float = 50.0,
+    market_volatility: float = 0.5,
+):
+    prediction = settlement_predictor.predict_fail_heuristic(
+        member_id=member_id,
+        symbol=symbol,
+        position_size=position_size,
+        available_securities=available_securities,
+        market_volatility=market_volatility,
+    )
+    return {
+        "prediction_id": prediction.prediction_id,
+        "probability": prediction.probability,
+        "risk_level": prediction.risk_level,
+        "reasoning": prediction.reasoning,
+        "recommended_action": prediction.recommended_action,
+        "confidence": prediction.confidence,
+    }
+
+
+@app.get("/settlement/predictions")
+async def get_settlement_predictions(limit: int = 50):
+    return settlement_predictor.get_recent_predictions(limit)
+
+
+@app.get("/settlement/high-risk")
+async def get_high_risk_members():
+    return settlement_predictor.get_high_risk_members()
+
+
+# ===================================================================
+# Circuit Breaker & LULD Endpoints
+# ===================================================================
+
+@app.get("/circuit-breaker")
+async def get_circuit_breaker_state():
+    return circuit_breaker.get_state()
+
+
+@app.post("/circuit-breaker/update-price")
+async def update_circuit_breaker_price(price: float):
+    level = circuit_breaker.update_price(price)
+    return {
+        "triggered": level.value if level else None,
+        "state": circuit_breaker.get_state(),
+    }
+
+
+@app.post("/circuit-breaker/reset")
+async def reset_circuit_breaker(reference_price: float):
+    circuit_breaker.reset_daily(reference_price)
+    return {"status": "reset", "reference_price": reference_price}
+
+
+@app.get("/luld/{symbol}")
+async def get_luld_band(symbol: str):
+    band = luld_monitor.get_band(symbol)
+    if not band:
+        raise HTTPException(status_code=404, detail=f"No LULD band for {symbol}")
+    return band
+
+
+@app.get("/luld")
+async def get_all_luld_bands():
+    return luld_monitor.get_all_bands()
+
+
+@app.post("/luld/{symbol}/resume")
+async def resume_luld(symbol: str, reference_price: float):
+    luld_monitor.resume_trading(symbol, reference_price)
+    return luld_monitor.get_band(symbol)
+
+
+@app.post("/risk-engine/limits/{account_id}")
+async def set_risk_limits(account_id: str, limits: dict):
+    pre_trade_risk.set_limits(account_id, PreTradeRiskLimits(**limits))
+    return {"status": "configured", "account_id": account_id}
+
+
+@app.post("/risk-engine/check")
+async def check_order_risk(account_id: str, symbol: str, quantity: float, price: float):
+    result = pre_trade_risk.check_order(account_id, symbol, quantity, price)
+    return {
+        "allowed": result.allowed,
+        "reason": result.reason,
+        "latency_ns": result.latency_ns,
+        "checks_performed": result.checks_performed,
+    }
+
+
+@app.get("/risk-engine/stats")
+async def get_risk_engine_stats():
+    return pre_trade_risk.get_stats()
+
+
+@app.post("/kill-switch/{participant_id}")
+async def trigger_kill_switch(participant_id: str, reason: str = "Manual trigger"):
+    success = pre_trade_risk.kill_switch.trigger(participant_id, reason)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Unknown participant: {participant_id}")
+    return {"status": "triggered", "participant_id": participant_id}
+
+
+@app.post("/kill-switch/{participant_id}/reset")
+async def reset_kill_switch(participant_id: str):
+    pre_trade_risk.kill_switch.reset(participant_id)
+    return {"status": "reset", "participant_id": participant_id}
+
+
+@app.get("/kill-switch/triggered")
+async def get_triggered_kill_switches():
+    return pre_trade_risk.kill_switch.get_triggered()
+
+
+# ===================================================================
+# Market Data Feed Endpoints
+# ===================================================================
+
+@app.get("/market-data/feed/stats")
+async def get_feed_stats():
+    return market_data_feed.get_feed_stats()
+
+
+@app.get("/market-data/nbbo/{symbol}")
+async def get_nbbo(symbol: str):
+    nbbo = market_data_feed.get_nbbo(symbol)
+    if not nbbo:
+        raise HTTPException(status_code=404, detail=f"No NBBO data for {symbol}")
+    return nbbo
+
+
+@app.get("/market-data/nbbo")
+async def get_all_nbbos():
+    return market_data_feed.get_all_nbbos()
