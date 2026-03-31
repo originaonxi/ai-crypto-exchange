@@ -28,8 +28,9 @@ Here's what's inside:
 5. Market Data — SIP processor, NBBO across venues, tiered feeds (HFT to retail)
 6. Smart Order Router — ML-ranked venue scoring across NYSE, NASDAQ, CBOE, IEX, ARCA
 7. Co-Location Simulator — FPGA-style order books, cross-venue arbitrage, physics-based latency
+8. Fault Tolerance — Raft consensus, hot-hot replication, chaos engineering, <30s failover
 
-198 tests. 12 modules. 11,500+ lines. Apache 2.0 license.
+250 tests. 13 modules. 8 integrated systems. Apache 2.0 license.
 
 The smart order router is the part I'm most proud of.
 
@@ -51,6 +52,7 @@ Every module exists because a real disaster proved it was needed:
 - FTX ($8B) → Real-time risk + audit trail
 - Spread Networks ($300M) → Co-location physics simulator
 - Pump-and-dump ($4.6B/yr) → Claude surveillance
+- NYSE outage 2015 ($14B blocked) → Raft consensus + chaos engineering
 
 This is not a toy matching engine.
 

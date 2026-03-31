@@ -1,6 +1,6 @@
 [project]
 name = "ai-crypto-exchange"
-version = "0.4.0"
+version = "0.5.0"
 description = "AI-Enhanced Crypto Exchange — LMAX matching engine, DTCC-style settlement & clearing, SEC circuit breakers, SIP market data feeds, Claude-powered risk analytics"
 readme = "README.md"
 license = {text = "Apache-2.0"}

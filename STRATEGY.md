@@ -18,9 +18,9 @@ The exchange engine should be infrastructure, not a competitive advantage. The c
 
 ## The Moat: What Makes Us Unreplicable
 
-### 1. The Only 7-System Open-Source Exchange Stack
+### 1. The Only 8-System Open-Source Exchange Stack
 
-No other project — commercial or open-source — ships all seven systems in one package:
+No other project — commercial or open-source — ships all eight systems in one package:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -33,6 +33,7 @@ No other project — commercial or open-source — ships all seven systems in on
 │  5. Market Data Feeds      │  SIP + NBBO + tiers│  Nobody            │
 │  6. Smart Order Router     │  ML scoring + algos│  Nobody            │
 │  7. Co-Location Sim        │  Physics + arb     │  Nobody            │
+│  8. Fault Tolerance        │  Raft + hot-hot    │  Nobody            │
 ├──────────────────────────────────────────────────────────────────────┤
 │  TESTS                     │  198 passing       │  0–50 typical      │
 │  DEPLOY                    │  docker compose up │  10+ microservices  │
@@ -84,13 +85,14 @@ Every component exists because a real disaster proved it was needed:
 | Spread Networks (2012) | $300M | Co-location simulator | Physics ignorance |
 | Pump-and-dump (ongoing) | $4.6B/yr | Claude surveillance | Market manipulation |
 | NASDAQ SIP failure (2013) | $10M fine | SIP gap detection | Data feed failures |
+| NYSE outage (2015) | $14B blocked | Raft + chaos engineer | Version mismatch on failover |
 | Poor execution (ongoing) | $Billions | Smart order router | Hidden trading costs |
 
 This isn't academic. Every safeguard maps to a real catastrophe that cost real money.
 
 ---
 
-## Top 12 Differentiators
+## Top 14 Differentiators
 
 | # | Feature | Us | CCXT | OpenDAX | Peatio | GH Repos |
 |---|---|---|---|---|---|---|
@@ -105,7 +107,9 @@ This isn't academic. Every safeguard maps to a real catastrophe that cost real m
 | 9 | **Co-location simulator + latency arbitrage** | Yes | No | No | No | No |
 | 10 | **Implementation shortfall analytics** | Yes | No | No | No | No |
 | 11 | LMAX Disruptor + RB-tree order book | Yes | N/A | No | No | No |
-| 12 | 198 tests, one-command Docker deploy | Yes | N/A | 10+ svc | 10+ svc | No |
+| 12 | **Raft consensus cluster (5-node)** | Yes | No | No | No | No |
+| 13 | **Hot-hot replication + chaos testing** | Yes | No | No | No | No |
+| 14 | 250 tests, one-command Docker deploy | Yes | N/A | 10+ svc | 10+ svc | No |
 
 ---
 
@@ -192,7 +196,18 @@ This isn't academic. Every safeguard maps to a real catastrophe that cost real m
 - [x] **Co-location educational lesson** — CO_LOCATION.md with Knight Capital, Spread Networks, napkin math
 - [x] 198 tests (46 new)
 
-### v0.5.0 — Advanced Orders (Next)
+### v0.5.0 — Fault Tolerance (Current Release)
+- [x] **Raft consensus cluster** — leader election, log replication, quorum commits, term tracking
+- [x] **Hot-hot replication** — dual engine processing with continuous state comparison
+- [x] **Deterministic replay** — WAL-based checkpoint + replay for crash recovery
+- [x] **State fingerprinting** — SHA-256 cross-replica validation (catches version mismatches)
+- [x] **Chaos engineering** — AI-driven fault injection: node crash, version mismatch, state corruption
+- [x] **Automatic failover** — <30s leader replacement with zero data loss
+- [x] **NYSE 2015 prevention** — version consistency check across all nodes before failover
+- [x] FAULT_TOLERANCE.md educational deep-dive
+- [x] 250 tests (52 new)
+
+### v0.6.0 — Advanced Orders (Next)
 - [ ] Stop-loss and stop-limit orders
 - [ ] Trailing stop orders
 - [ ] Iceberg orders (hidden quantity)

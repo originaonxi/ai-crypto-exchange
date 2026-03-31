@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-31
+
+### Added — Exchange Fault Tolerance
+- **Raft consensus cluster** — leader election with term tracking, log replication to followers, quorum-based commit (majority acknowledges before entry is committed)
+- **Hot-hot replication** — dual matching engines process every order simultaneously, SHA-256 comparator halts trading on any divergence
+- **Deterministic replay engine** — checkpoint + replay from any point, produces bit-identical state reconstruction, verifies determinism invariant
+- **State fingerprinting** — cross-replica validation comparing state hash, order book hash, software version, and commit index
+- **Chaos engineering suite** — AI-driven fault injection: node crash, version mismatch (NYSE 2015 bug), state corruption
+- **Automatic failover** — leader crash triggers new election in <30s with zero data loss
+- **Node recovery** — crashed nodes catch up from leader's log, restore full state consistency
+- **FAULT_TOLERANCE.md** — educational deep-dive with NYSE 2015 case study, napkin math, Raft explanation
+
+### Changed
+- Version bumped to 0.5.0 (8 integrated systems)
+- All documentation updated: README, ARCHITECTURE, STRATEGY, WHAT_IS_THIS
+- Architecture diagram expanded with fault tolerance block
+- Disaster table includes NYSE 2015 outage ($14B blocked)
+
+### Testing
+- 52 new tests (250 total), all passing in 0.85s
+- `test_fault_tolerance.py` — 52 tests: Raft node, Raft cluster, hot-hot replication, deterministic replay, chaos engineering, integration (full lifecycle, NYSE 2015 scenario)
+
+---
+
 ## [0.4.0] - 2026-03-31
 
 ### Added — AI Smart Order Router

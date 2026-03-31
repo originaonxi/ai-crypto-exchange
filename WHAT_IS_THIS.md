@@ -113,6 +113,17 @@ Educational but functional simulation of HFT co-location:
 
 This is the only open-source project that teaches you WHY firms pay $14K/month for a rack — and then gives you the AI alternative.
 
+**8. Exchange Fault Tolerance** (`exchange/fault_tolerance.py`) **NEW**
+
+When the NYSE went dark for 3 hours and 38 minutes on July 8, 2015, it was because their backup systems were running a different software version. Our fault tolerance module prevents this:
+- **Raft Consensus Cluster**: 5-node cluster with automatic leader election, log replication, and quorum-based commits
+- **Hot-Hot Replication**: Both matching engines process every order simultaneously; a comparator halts trading instantly if they diverge
+- **Deterministic Replay**: Checkpoint + replay from WAL produces bit-identical state reconstruction
+- **AI Chaos Engineering**: Injects controlled faults (node crashes, version mismatches, state corruption) and measures recovery
+- **Version Consistency Check**: The exact check that would have prevented the NYSE 2015 outage — validates software versions across all nodes before any failover
+
+Recovery target: <30 seconds. The NYSE took 3 hours and 38 minutes.
+
 ---
 
 ## Who Is This For?

@@ -11,8 +11,8 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License: Apache 2.0"></a>
-  <a href="#testing"><img src="https://img.shields.io/badge/tests-198%20passing-brightgreen.svg" alt="Tests: 198 passing"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.4.0-orange.svg" alt="Version: 0.4.0"></a>
+  <a href="#testing"><img src="https://img.shields.io/badge/tests-250%20passing-brightgreen.svg" alt="Tests: 198 passing"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.5.0-orange.svg" alt="Version: 0.4.0"></a>
   <a href="#performance"><img src="https://img.shields.io/badge/latency-~15μs-purple.svg" alt="Latency: ~15μs"></a>
   <a href="#performance"><img src="https://img.shields.io/badge/throughput-100K+%20ops/s-red.svg" alt="Throughput: 100K+ ops/s"></a>
   <a href="#settlement--clearing"><img src="https://img.shields.io/badge/netting-98%25%20efficiency-gold.svg" alt="Netting: 98%"></a>
@@ -30,6 +30,7 @@ The **only open-source project** that ships all 7 systems every exchange needs �
 5. **Market Data Feeds** — SIP processor, NBBO, tiered distribution (HFT/institutional/retail)
 6. **Smart Order Router** — ML venue scoring across 5 exchanges, TWAP/VWAP/Adaptive execution, implementation shortfall analytics
 7. **Co-Location Simulator** — FPGA-style order books, cross-venue arbitrage detection, physics-based latency modeling
+8. **Fault Tolerance** — Raft consensus, hot-hot replication, deterministic replay, AI chaos engineering
 
 The system that would have prevented Knight Capital's [$440M loss](https://www.sec.gov/litigation/admin/2013/34-70694.pdf), detected the [2010 Flash Crash](https://www.sec.gov/news/studies/2010/marketevents-report.pdf) in real-time, avoided Robinhood's [$3.4B margin crisis](https://www.sec.gov/files/staff-report-equity-options-market-struction-conditions-early-2021.pdf) during GameStop, and predicted the execution quality problems that cost investors billions in hidden fees.
 
@@ -71,13 +72,14 @@ BTC-USD Exchange Dashboard (Live)
 | Pump-and-dump (ongoing) | $4.6B in 2023 | No surveillance | Claude AI + rule engine + predictive analytics |
 | Spread Networks ($300M) | Obsolete in 18mo | Physics > fiber | Co-location sim + latency modeling + smart order routing |
 | Poor execution (ongoing) | $Billions hidden | No smart routing | AI venue scoring + TWAP/VWAP/Adaptive + IS analytics |
+| NYSE Outage (2015) | $14B blocked, 3h38m | Version mismatch on failover | Raft consensus + version validation + chaos engineering |
 | NASDAQ SIP Failure (2013) | 3hr halt, $10M fine | No gap detection | SIP processor with sequence ordering + retransmission |
 
-## Architecture — Seven Integrated Systems
+## Architecture — Eight Integrated Systems
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                     AI-ENHANCED CRYPTO EXCHANGE v0.4.0                           │
+│                     AI-ENHANCED CRYPTO EXCHANGE v0.5.0                           │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
 │  ┌─────────────┐   ┌──────────────┐   ┌───────────────┐   ┌──────────────────┐  │
@@ -137,6 +139,10 @@ BTC-USD Exchange Dashboard (Live)
 | **Co-Location Sim** | FPGA-style order books | Pre-allocated array-based books, O(1) updates, zero GC |
 | **Latency Arbitrage** | Cross-venue arbitrage | Detects profitable price discrepancies across venue pairs |
 | **Physics Modeling** | Latency calculation | Fiber (2/3c), microwave (93%c), copper, co-located propagation |
+| **Raft Consensus** | Leader election + log replication | 5-node cluster, quorum commits, automatic failover <30s |
+| **Hot-Hot Replication** | Dual engine comparison | Both engines process every order, divergence halts trading |
+| **Deterministic Replay** | WAL-based recovery | Checkpoint + replay, bit-identical state reconstruction |
+| **Chaos Engineering** | AI-driven fault injection | Node crash, version mismatch, state corruption testing |
 | **Crash Recovery** | Write-ahead log | Binary WAL with full state reconstruction on restart |
 | **Memory** | Object pooling | Pre-allocated orders to eliminate GC pauses at peak load |
 | **API** | REST + WebSocket | FastAPI with 50+ endpoints + real-time streams |
@@ -424,10 +430,11 @@ pip install -e ".[dev]"
 pytest -v
 ```
 
-**198 tests across 10 test files** — 0.76s total runtime:
+**250 tests across 11 test files** — 0.85s total runtime:
 
 | File | Tests | What It Validates |
 |------|-------|-------------------|
+| `test_fault_tolerance.py` | 52 | Raft consensus, leader election, log replication, hot-hot, replay, chaos |
 | `test_smart_order_router.py` | 46 | Venue scoring, order routing, TWAP/VWAP/adaptive, arbitrage, co-location |
 | `test_settlement.py` | 31 | Netting, margin, DVP, fails, borrow, warehouse, AI prediction |
 | `test_circuit_breaker.py` | 29 | LULD bands, circuit breakers, kill switch, pre-trade risk |
@@ -443,7 +450,7 @@ pytest -v
 
 ```
 ai-crypto-exchange/
-├── exchange/                        # Core engine (12 modules, 7 systems)
+├── exchange/                        # Core engine (13 modules, 8 systems)
 │   ├── order_book.py               #   Red-Black tree book with L2/L3/imbalance
 │   ├── matching_engine.py          #   LMAX Disruptor engine with ring buffer
 │   ├── settlement.py               #   T+1 CCP: netting, margin, DVP, fail mgmt
@@ -454,16 +461,18 @@ ai-crypto-exchange/
 │   ├── ai_detector.py              #   Claude + rule-based anomaly detection
 │   ├── smart_order_router.py       #   AI venue scoring, TWAP/VWAP/Adaptive, IS analytics
 │   ├── colocation.py               #   Co-location simulator, latency arbitrage, FPGA books
+│   ├── fault_tolerance.py          #   Raft consensus, hot-hot replication, chaos engineering
 │   ├── wal.py                      #   Write-ahead log for crash recovery
 │   ├── api.py                      #   FastAPI REST + WebSocket (50+ endpoints)
 │   └── cli.py                      #   CLI entry point
-├── tests/                           # 198 tests (10 files)
+├── tests/                           # 250 tests (11 files)
 ├── scripts/
 │   ├── demo.py                     #   Interactive demo with simulated attacks
 │   └── load_test.py                #   Benchmarking (direct + API modes)
 ├── WHAT_IS_THIS.md                  # Business explainer (start here)
 ├── ARCHITECTURE.md                  # Technical deep-dive (7 systems)
 ├── CO_LOCATION.md                   # Co-location & latency arbitrage lesson
+├── FAULT_TOLERANCE.md               # Exchange fault tolerance & Raft consensus
 ├── STRATEGY.md                      # Competitive positioning & roadmap
 ├── CHANGELOG.md                     # Version history
 ├── Dockerfile                       # Single-container deployment
@@ -477,6 +486,8 @@ ai-crypto-exchange/
 > Full technical deep-dive: [ARCHITECTURE.md](ARCHITECTURE.md)
 >
 > Co-location & latency arbitrage: [CO_LOCATION.md](CO_LOCATION.md)
+>
+> Fault tolerance & consensus: [FAULT_TOLERANCE.md](FAULT_TOLERANCE.md)
 >
 > Business explainer: [WHAT_IS_THIS.md](WHAT_IS_THIS.md)
 >
@@ -498,6 +509,8 @@ ai-crypto-exchange/
 | Order routing | ML venue scoring | Intelligence over speed ($300 vs $14K/mo) | Raw latency (co-location) |
 | Execution | TWAP/VWAP/Adaptive | Minimizes market impact for all order sizes | Single-venue direct routing |
 | HFT simulation | FPGA-style array books | O(1) updates, zero GC, educational | Skip co-location entirely |
+| Fault tolerance | Raft consensus + hot-hot | <30s failover, continuous validation | Cold standby (minutes) |
+| Chaos testing | AI-driven fault injection | Catches NYSE 2015-style bugs before prod | Manual testing only |
 
 ## Academic References
 
@@ -517,6 +530,8 @@ ai-crypto-exchange/
 | [IEX: Speed Bump Design](https://iextrading.com/) | Adverse selection protection | `smart_order_router.py::VenueProfile` |
 | [Michael Lewis: Flash Boys](https://wwnorton.com/) | Co-location, microwave vs fiber | `colocation.py::LatencyProfile` |
 | [SEC: Regulation NMS (Rule 611)](https://www.sec.gov/rules/final/34-51808.htm) | Order protection, best execution | `smart_order_router.py::SmartOrderRouter` |
+| [Raft: In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf) | Leader election, log replication | `fault_tolerance.py::RaftNode` |
+| [NYSE July 2015 Outage — SEC Investigation](https://www.sec.gov/) | Version mismatch, failover failure | `fault_tolerance.py::ChaosEngineer` |
 
 ## Contributing
 

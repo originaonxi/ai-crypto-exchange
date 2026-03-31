@@ -8,7 +8,7 @@
 
 ```
                           ┌─────────────────────────────────────────────────────────────┐
-                          │              AI-ENHANCED CRYPTO EXCHANGE v0.4.0              │
+                          │              AI-ENHANCED CRYPTO EXCHANGE v0.5.0              │
                           │                                                             │
                           │    "Correctness over throughput. Determinism over speed."    │
                           ├─────────────────────────────────────────────────────────────┤
@@ -780,6 +780,67 @@ The arbitrage scanner checks all venue pairs in O(n²) where n = number of venue
 
 ---
 
+## 12. Fault Tolerance — `exchange/fault_tolerance.py`
+
+### Architecture: Raft Consensus + Hot-Hot + Chaos Engineering
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Matching Engine │◄──►│ Matching Engine │◄──►│ Matching Engine │
+│   Node A        │    │   Node B        │    │   Node C (DR)   │
+│  (Raft Leader)  │    │ (Raft Follower) │  (Raft Follower)  │
+└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+         │                      │                      │
+         └──────────┬───────────┘──────────────────────┘
+                    ▼
+         ┌──────────────────┐        ┌──────────────────┐
+         │  Hot-Hot Compare │        │  Chaos Engineer   │
+         │  (diverge→halt)  │        │  (inject faults)  │
+         └──────────────────┘        └──────────────────┘
+```
+
+### Raft Consensus — Why Not Paxos?
+
+| Property | Paxos | Raft | Why Raft |
+|---|---|---|---|
+| Understandability | Notoriously complex | Designed for humans | Engineers debug at 3 AM |
+| Leader election | Multi-round | Single-round vote | Faster failover |
+| Log replication | Implicit | Explicit append-entries | Easier to verify |
+| Safety proof | Decades of papers | One clear paper | Audit-friendly |
+
+Our Raft implementation provides:
+- **Leader election**: nodes vote when heartbeat times out, majority wins
+- **Log replication**: leader appends entries, commits after quorum acknowledges
+- **State fingerprinting**: SHA-256 hash of order book state for cross-replica validation
+- **Version consistency check**: catches the exact bug that caused the NYSE 2015 outage
+
+### Hot-Hot Replication — Not Primary-Backup
+
+```
+Traditional (Cold Standby):         Our Approach (Hot-Hot):
+Primary processes orders             Both engines process ALL orders
+Backup sits idle                     Comparator validates outputs
+Failover: 5-15 minutes              Failover: <30 seconds
+No validation until failure          Continuous validation
+```
+
+The `HotHotReplicator` compares results from both engines after every order. If hashes diverge (meaning the engines produced different trades from the same input), it halts trading immediately. This catches bugs that would otherwise only appear during a failover — exactly like the NYSE 2015 incident.
+
+### Chaos Engineering — Testing Failure Before Failure Tests You
+
+The `ChaosEngineer` injects controlled faults:
+
+| Fault Type | What It Tests | NYSE 2015 Relevance |
+|---|---|---|
+| Node crash | Leader election, recovery | Would have tested failover |
+| Version mismatch | Software consistency | **Would have caught the exact bug** |
+| State corruption | Divergence detection | Catches data integrity issues |
+| Network partition | Quorum maintenance | Tests split-brain scenarios |
+
+> Full educational deep-dive: [FAULT_TOLERANCE.md](FAULT_TOLERANCE.md)
+
+---
+
 ## Future Architecture — v0.6+ Multi-Node
 
 ```
@@ -838,3 +899,6 @@ The arbitrage scanner checks all venue pairs in O(n²) where n = number of venue
 21. McKay Brothers — [Microwave Network for Financial Markets](https://www.mckay-brothers.com/)
 22. Xilinx — [FPGA-Based Trading Systems Technical Documentation](https://www.xilinx.com/)
 23. Cloudflare Engineering — [How to Drop 10 Million Packets Per Second](https://blog.cloudflare.com/)
+24. Ongaro & Ousterhout — [In Search of an Understandable Consensus Algorithm (Raft)](https://raft.github.io/raft.pdf)
+25. NYSE July 2015 Outage — [SEC Investigation and Analysis](https://www.sec.gov/)
+26. Martin Fowler — [Patterns of Distributed Systems](https://martinfowler.com/articles/patterns-of-distributed-systems/)
