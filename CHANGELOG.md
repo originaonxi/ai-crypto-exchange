@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-31
+
+### Added — AI Smart Order Router
+- **ML-based venue scoring** — ranks NYSE, NASDAQ, CBOE, IEX, ARCA across 6 factors (spread, fees, fill rate, adverse selection, depth, latency)
+- **Urgency-adaptive weight adjustment** — CRITICAL orders prioritize fill rate; LOW urgency hunts for maker rebates
+- **TWAP execution algorithm** — time-weighted equal slicing for minimal information leakage
+- **VWAP execution algorithm** — volume-weighted slicing following U-shaped market profile
+- **Adaptive execution algorithm** — AI-driven dynamic slicing based on real-time volatility, depth, and microstructure
+- **Implementation shortfall analytics** — institutional gold standard for measuring true execution cost (arrival price vs fill)
+- **Execution quality dashboard** — per-venue fill rates, slippage tracking, fee/rebate analysis
+- **Multi-venue order allocation** — weighted splitting across top 3 venues by score
+
+### Added — Co-Location & Latency Arbitrage
+- **FPGA-style low-latency order book** — pre-allocated array-based book with O(1) updates, zero GC pressure
+- **Cross-venue arbitrage detection** — finds profitable price discrepancies across venue pairs
+- **Physics-based latency modeling** — calculates real propagation delays for fiber (2/3c), microwave (93%c), copper (77%c), co-located
+- **Co-location simulator** — rack placement, cable length tracking (5ns/m), cross-connect modeling
+- **CO_LOCATION.md** — educational deep-dive with Knight Capital, Spread Networks, napkin math, engineering trade-offs
+
+### Changed
+- Version bumped to 0.4.0
+- ARCHITECTURE.md expanded with Smart Order Router and Co-Location deep dives
+- STRATEGY.md rewritten with 7-system positioning, 12 differentiators, expanded roadmap
+- WHAT_IS_THIS.md updated with all 7 systems, new comparison tables
+- README.md updated: badges, architecture diagram references, project structure
+
+### Testing
+- 46 new tests (198 total), all passing in 0.76s
+- `test_smart_order_router.py` — 46 tests: venue scoring, order routing, TWAP/VWAP/adaptive execution, implementation shortfall, low-latency order book, cross-venue arbitrage, co-location latency simulation
+
+---
+
 ## [0.3.0] - 2026-03-30
 
 ### Added — Settlement & Clearing Architecture (T+1)

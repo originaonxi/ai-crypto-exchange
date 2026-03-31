@@ -1,6 +1,6 @@
 # Architecture — Technical Deep Dive
 
-> How we built a full exchange stack — matching, settlement, circuit breakers, market data — that processes 100K+ orders/second, settles with 98% netting efficiency, and predicts failures with AI, all in Python.
+> How we built a complete 7-system exchange stack — matching, settlement, circuit breakers, market data, AI surveillance, smart order routing, and co-location simulation — that processes 100K+ orders/second, settles with 98% netting efficiency, routes orders across 5 venues with ML-ranked scoring, and predicts failures with Claude AI. All in Python. All open-source.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```
                           ┌─────────────────────────────────────────────────────────────┐
-                          │              AI-ENHANCED CRYPTO EXCHANGE v0.3.0              │
+                          │              AI-ENHANCED CRYPTO EXCHANGE v0.4.0              │
                           │                                                             │
                           │    "Correctness over throughput. Determinism over speed."    │
                           ├─────────────────────────────────────────────────────────────┤
@@ -602,7 +602,185 @@ SEC Regulation NMS requires all venues route orders to the venue displaying the 
 
 ---
 
-## Future Architecture — v0.5+ Multi-Node
+## 10. Smart Order Router — `exchange/smart_order_router.py`
+
+### Architecture: Intelligence Over Speed
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    SMART ORDER ROUTER (AI-FIRST)                         │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ORDER INTAKE ──▶ VENUE SCORER ──▶ AI TIMING ──▶ EXECUTION PLANNER      │
+│  (validate,       (ML-ranked      (predict      (TWAP/VWAP/             │
+│   classify,        6 factors)      impact)       Adaptive)              │
+│   urgency)                                                               │
+│                              │                                           │
+│                              ▼                                           │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐         │
+│  │  NYSE   │ │ NASDAQ  │ │  CBOE   │ │   IEX   │ │  ARCA   │         │
+│  │ $0.0030 │ │ $0.0030 │ │ $0.0025 │ │ $0.0009 │ │ $0.0030 │ Taker  │
+│  │-$0.0020 │ │-$0.0020 │ │-$0.0017 │ │ $0.0000 │ │-$0.0020 │ Maker  │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘         │
+│                              │                                           │
+│                              ▼                                           │
+│            EXECUTION ANALYTICS (Implementation Shortfall)                │
+│            Slippage │ Fill Rate │ IS │ Venue Performance                 │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Core Thesis: Why $300/month Beats $14K/month
+
+For orders larger than 100 shares, execution quality depends more on **where** and **when** you route than **how fast**. A smart router sending to IEX during high-volatility periods (low adverse selection, 350μs speed bump protects against toxic HFT flow) outperforms a co-located server blindly hitting NASDAQ.
+
+### Multi-Factor Venue Scoring
+
+The `VenueScorer` ranks venues across 6 dimensions using a weighted linear model:
+
+| Factor | Weight (Normal) | Weight (Critical) | Weight (Passive) | Signal |
+|---|---|---|---|---|
+| Spread | 25% | 10% | 30% | Tighter = cheaper to cross |
+| Fees | 15% | 5% | 30% | Lower taker/higher maker rebate |
+| Fill Rate | 20% | 40% | 10% | Higher = more reliable execution |
+| Adverse Selection | 20% | 15% | 25% | Lower = less HFT toxicity |
+| Depth | 10% | 25% | 5% | More depth = less market impact |
+| Latency | 10% | 5% | 0% | Faster = better queue position |
+
+Weights shift dynamically based on urgency. CRITICAL orders prioritize fill rate and depth. LOW urgency (passive) orders hunt for maker rebates and avoid adverse selection.
+
+**Why IEX scores highest for passive orders**: IEX's 350μs speed bump neutralizes HFT predatory strategies. Adverse selection score of 0.15 (vs 0.60 for NASDAQ) means your resting orders get picked off 75% less often.
+
+### Execution Algorithms
+
+**TWAP (Time-Weighted Average Price)**
+```
+Input:  1000 shares over 300 seconds
+Output: 10 slices × 100 shares, every 30 seconds
+Use:    When you want minimal information leakage
+```
+
+**VWAP (Volume-Weighted Average Price)**
+```
+Input:  1000 shares, volume profile [0.30, 0.10, 0.10, 0.20, 0.30]
+Output: 300, 100, 100, 200, 300 shares (U-shaped, matching open/close volume)
+Use:    When you want to trade in line with market volume
+```
+
+**Adaptive (AI-Driven)**
+```
+Input:  1000 shares + real-time microstructure snapshot
+Factors: volatility → faster; low depth → smaller slices; high urgency → front-load
+Output: Variable-sized slices that adjust to market conditions
+Use:    When market conditions are changing (earnings, macro events)
+```
+
+### Implementation Shortfall — The True Cost of Trading
+
+```
+Implementation Shortfall = (Actual Cost - Paper Cost) / Paper Cost
+
+For a BUY order:
+  Decision price (arrival):  $150.00
+  Average fill price:        $150.05
+  Quantity:                  1,000 shares
+  Fees:                      $3.00
+
+  Price Impact:  ($150.05 - $150.00) × 1,000 = $50.00
+  Fees:          $3.00
+  Total IS:      $53.00
+  IS in bps:     53 / 150,000 × 10,000 = 3.53 bps
+```
+
+This is the institutional gold standard for measuring execution quality. Every trade through our router produces an IS calculation, enabling data-driven venue selection improvement over time.
+
+---
+
+## 11. Co-Location & Latency Arbitrage — `exchange/colocation.py`
+
+### Architecture: The Physics of HFT
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    CO-LOCATION SIMULATOR                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────┐     ┌──────────────┐     ┌─────────────┐ │
+│  │  VENUE BOOKS │     │   LATENCY    │     │  ARBITRAGE  │ │
+│  │  (FPGA-style)│     │   PROFILES   │     │  SCANNER    │ │
+│  │              │     │              │     │             │ │
+│  │  Pre-alloc   │     │  Fiber: 2/3c │     │  Cross-venue│ │
+│  │  arrays      │     │  μWave: 93%c │     │  price gaps │ │
+│  │  O(1) update │     │  Copper: 77%c│     │  Profit calc│ │
+│  │  Zero GC     │     │  Colo: <1μs  │     │  Qty sizing │ │
+│  └──────────────┘     └──────────────┘     └─────────────┘ │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  INFRASTRUCTURE MODEL                                 │   │
+│  │  Rack placement │ Cable length (5ns/m) │ Cross-connect│   │
+│  └──────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### FPGA-Style Order Book — Why Arrays Beat Trees for HFT
+
+The `LowLatencyOrderBook` uses pre-allocated arrays indexed by price-in-cents, avoiding all dynamic allocation:
+
+```python
+# Traditional order book (our matching engine):
+self.bids = SortedDict()  # Red-Black tree: O(log n) insert, dynamic allocation
+
+# FPGA-style order book (co-location module):
+self.bids = [None] * 100000  # Pre-allocated: O(1) insert, zero allocation
+self.asks = [None] * 100000
+```
+
+| Operation | RB-Tree Book | FPGA Array Book | Why FPGA Wins |
+|---|---|---|---|
+| Update level | O(log n) + alloc | O(1), no alloc | Eliminates GC pauses entirely |
+| Best bid/ask | O(1) peek | O(1) index | Same speed, but no tree traversal |
+| Iteration | O(n) sorted | O(n) scan | Same, but better cache locality |
+| Memory | Dynamic | Fixed 800KB | Predictable, pre-warmed in L2 cache |
+| GC pressure | High at 1M updates/sec | Zero | The entire point for HFT |
+
+**Trade-off**: Fixed price range. You can't store $150.01 and $1,500,000.01 in the same array without wasting 150M entries. Real FPGA implementations solve this with configurable base offsets.
+
+### Physics-Based Latency Calculation
+
+```
+Speed of light in vacuum:  299,792 km/s (c)
+
+Medium          Speed       1200km (NYC→Chicago)    Why
+─────────────────────────────────────────────────────────
+Fiber optic     2/3 c       6.0ms + 5μs processing  Total internal reflection
+Microwave       93% c       4.3ms + 2μs processing  Air propagation ≈ vacuum
+Copper (Cat6A)  77% c       N/A (short distance)     Electrical signal
+Co-located      2/3 c       0.05μs (10m cable)       Same rack row
+
+Advantage of microwave over fiber: 1.7ms round-trip
+Value at 1000 arb opportunities/sec: $31.5M/year
+```
+
+This is why McKay Brothers' microwave towers killed Spread Networks' $300M fiber cable in 18 months.
+
+### Cross-Venue Arbitrage Detection
+
+```
+NYSE  Ask: $150.00 × 100 shares
+NASDAQ Bid: $150.05 × 100 shares
+
+Arbitrage: Buy NYSE $150.00, Sell NASDAQ $150.05
+Profit per share: $0.05 - $0.001 (fees) = $0.049
+Max profit: $0.049 × 100 = $4.90
+Detection-to-execution window: ~100μs before competitors react
+```
+
+The arbitrage scanner checks all venue pairs in O(n²) where n = number of venues. With 5 venues, that's 10 comparisons — trivial even in Python.
+
+> Full educational deep-dive: [CO_LOCATION.md](CO_LOCATION.md) — includes the Knight Capital story, Spread Networks case study, and napkin math for latency advantage valuation.
+
+---
+
+## Future Architecture — v0.6+ Multi-Node
 
 ```
 ┌──────────┐      WAL Stream      ┌──────────┐      WAL Stream      ┌──────────┐
@@ -628,7 +806,7 @@ SEC Regulation NMS requires all venues route orders to the venue displaying the 
 
 | Stage | Orders/sec | Architecture | Team Size |
 |---|---|---|---|
-| **v0.3 (now)** | 100K+ | Single process, full stack, Python | 1 person |
+| **v0.4 (now)** | 100K+ | Single process, 7 systems, AI routing, Python | 1 person |
 | **v0.5** | 500K+ | Multi-node, WAL replication | 3-5 people |
 | **v0.8** | 1M+ | C++ core, Python orchestration | 5-10 people |
 | **v1.0** | 5M+ | FPGA acceleration, kernel bypass | 10-20 people |
@@ -652,3 +830,11 @@ SEC Regulation NMS requires all venues route orders to the venue displaying the 
 13. FIX Trading Community — [FIX Protocol 5.0 SP2 Specification](https://www.fixtrading.org/)
 14. SSRN — [Limit Order Book Dynamics and Asset Pricing](https://papers.ssrn.com/)
 15. ACM — [Ultra-Low Latency Trading Architecture](https://queue.acm.org/)
+16. Almgren & Chriss — [Optimal Execution of Portfolio Transactions](https://www.math.nyu.edu/~almgren/papers/optexec.pdf)
+17. Lehalle & Laruelle — [Market Microstructure in Practice](https://www.worldscientific.com/)
+18. SEC — [Regulation NMS: Order Protection Rule (Rule 611)](https://www.sec.gov/rules/final/34-51808.htm)
+19. IEX — [The Problem With High-Frequency Trading](https://iextrading.com/)
+20. Michael Lewis — [Flash Boys: A Wall Street Revolt](https://wwnorton.com/)
+21. McKay Brothers — [Microwave Network for Financial Markets](https://www.mckay-brothers.com/)
+22. Xilinx — [FPGA-Based Trading Systems Technical Documentation](https://www.xilinx.com/)
+23. Cloudflare Engineering — [How to Drop 10 Million Packets Per Second](https://blog.cloudflare.com/)
